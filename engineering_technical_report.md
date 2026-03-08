@@ -226,14 +226,3 @@ All mapping CSVs include `_source` column tracing to authoritative reference.
 - **Dev sample:** Non-deterministic (random 5K patients)
 - **Dependencies:** python ≥3.10, duckdb, pandas, numpy, scikit-learn, pyarrow. Managed via `uv`.
 
----
-
-## 11. Known Technical Debt
-
-| Item | Impact |
-|------|--------|
-| EWMA uses pandas groupby.apply | ~5s for 352K, acceptable |
-| Lab join is symmetric (±7d) | Could include future labs |
-| data_confidence is count (1–4), not fraction | Document in schema |
-| Dev sample non-deterministic | Seed if reproducibility needed |
-| No CI/CD pipeline | Manual runs, low risk at team size |
