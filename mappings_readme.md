@@ -2,21 +2,7 @@
 
 Canonical mapping layer for ACUHIT scoring system. Every output CSV is 100% reproducible from committed scripts + reference data.
 
-## Structure
-
-```text
-mappings/
-├── service/       # Service taxonomy (133 departments → 5 tiers)
-├── icd10/         # ICD-10 severity (Charlson/Elixhauser)
-├── drug/          # Drug classification (WHO ATC + brand bridge)
-├── lab_norm/      # Lab normalization (unit conversion)
-└── reference_data/
-    ├── drug/      # WHO ATC 2024, DrugBank, 900-entry brand bridge
-    ├── icd10/     # Charlson/Elixhauser prefix lists (Quan 2005)
-    └── lab/       # Clinical importance rules
-```
-
-## Output Samples
+## Mapping Outputs
 
 ### Service Taxonomy
 
