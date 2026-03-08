@@ -295,55 +295,31 @@ elif page == "Scoring Flow":
     # ── Scoring formula diagram (HTML) ──────────────────────────
     st.subheader("How a Score is Computed")
 
-    st.markdown("""
-<div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:18px;">
-  <div style="flex:1; min-width:140px; background:#fdd; border-radius:8px; padding:14px; text-align:center;">
-    <b>dx_burden</b><br/>max <b>35</b> pts<br/><small>ICD severity + history<br/>Charlson / Elixhauser</small>
-  </div>
-  <div style="flex:1; min-width:140px; background:#ddf; border-radius:8px; padding:14px; text-align:center;">
-    <b>lab_acuity</b><br/>max <b>25</b> pts<br/><small>Abnormal / critical labs<br/>7-day window</small>
-  </div>
-  <div style="flex:1; min-width:140px; background:#dfd; border-radius:8px; padding:14px; text-align:center;">
-    <b>tx_intensity</b><br/>max <b>20</b> pts<br/><small>Polypharmacy + oncology<br/>+ parenteral route</small>
-  </div>
-  <div style="flex:1; min-width:140px; background:#fef; border-radius:8px; padding:14px; text-align:center;">
-    <b>nlp_severity</b><br/>max <b>20</b> pts<br/><small>Symptom + chronic count<br/>+ negation</small>
-  </div>
-</div>
-<div style="text-align:center; margin-bottom:8px; font-size:1.3em;">⬇</div>
-<div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:18px;">
-  <div style="flex:1; background:#eee; border-radius:8px; padding:12px; text-align:center;">
-    <b>raw_score</b> = dx + lab + tx + nlp
-  </div>
-  <div style="flex:1; background:#eee; border-radius:8px; padding:12px; text-align:center;">
-    <b>possible_points</b> = 35 + (25 if labs) + (20 if rx) + (20 if text)<br/><i>Missing pillars excluded from denominator</i>
-  </div>
-</div>
-<div style="text-align:center; margin-bottom:8px; font-size:1.3em;">⬇</div>
-<div style="background:#ffa; border:2px solid #333; border-radius:10px; padding:16px; text-align:center; max-width:400px; margin:0 auto;">
-  <b style="font-size:1.2em;">severity_score = raw / possible × 100</b>
-</div>
-""", unsafe_allow_html=True)
+    cols = st.columns(4)
+    for col, (name, pts, desc) in zip(cols, [
+        ("dx_burden", 35, "ICD severity + history\nCharlson / Elixhauser"),
+        ("lab_acuity", 25, "Abnormal / critical labs\n7-day window"),
+        ("tx_intensity", 20, "Polypharmacy + oncology\n+ parenteral route"),
+        ("nlp_severity", 20, "Symptom + chronic count\n+ negation"),
+    ]):
+        col.metric(name, f"max {pts} pts")
+        col.caption(desc)
+
+    st.markdown("---")
+    c1, c2 = st.columns(2)
+    c1.code("raw_score = dx + lab + tx + nlp", language=None)
+    c2.code("possible_points = 35 + (25 if labs) + (20 if rx) + (20 if text)\n# Missing pillars excluded from denominator", language=None)
+    st.markdown("---")
+    st.code("severity_score = raw_score / possible_points × 100", language=None)
 
     # ── Cohort validation (HTML) ──────────────────────────────────
     st.subheader("Cohort Validation")
 
-    st.markdown("""
-<div style="display:flex; align-items:center; gap:0; flex-wrap:wrap; justify-content:center; margin:20px 0;">
-  <div style="background:#e44; color:#fff; border-radius:10px; padding:18px 24px; text-align:center; min-width:160px;">
-    <b>Deceased</b><br/>Score: <b>56.4</b><br/><small>191 patients</small>
-  </div>
-  <div style="padding:0 10px; font-size:1.5em; color:#888;">→</div>
-  <div style="background:#fa6; border-radius:10px; padding:18px 24px; text-align:center; min-width:160px;">
-    <b>Cancer</b><br/>Score: <b>29.1</b><br/><small>198 patients</small>
-  </div>
-  <div style="padding:0 10px; font-size:1.5em; color:#888;">→</div>
-  <div style="background:#6c6; border-radius:10px; padding:18px 24px; text-align:center; min-width:160px;">
-    <b>Check-up</b><br/>Score: <b>24.5</b><br/><small>197 patients</small>
-  </div>
-</div>
-<p style="text-align:center; color:#666; font-style:italic;">Clinically expected ordering — emerged without training on mortality</p>
-""", unsafe_allow_html=True)
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Deceased (191 pts)", "56.4")
+    c2.metric("Cancer (198 pts)", "29.1")
+    c3.metric("Check-up (197 pts)", "24.5")
+    st.caption("Clinically expected ordering — emerged without training on mortality")
 
     # ── Two real patient examples ────────────────────────────────
     st.subheader("Worked Examples — Real Patients")
