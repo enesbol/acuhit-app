@@ -477,16 +477,100 @@ elif page == "NLP Examples":
     st.caption("2 symptoms: ates (constitutional) + burun akint (respiratory). ronkus negated. 'ht' matches chronic pattern → chronic_mention=1.")
 
 elif page == "Full Reports":
-    st.title("Full Reports")
-    st.caption("Complete audit and engineering reports for reference.")
+    st.title("ACUHIT — End-to-End Report")
 
-    tab1, tab2, tab3 = st.tabs(["Scoring System Audit", "Engineering Technical Report", "Mappings & Reference Data"])
-    with tab1:
-        st.markdown(load_report("scoring_system_audit.md"))
-    with tab2:
-        st.markdown(load_report("engineering_technical_report.md"))
-    with tab3:
-        st.markdown(load_report("mappings_readme.md"))
+    st.markdown("""
+## 1. What Is ACUHIT?
+
+A **4-pillar clinical severity score (0–100)** built from Turkish hospital data — 352,522 episodes, 83,104 patients, 192 deceased.
+The score was **never trained on mortality**, yet achieves **AUC = 0.940** on death prediction (test set).
+
+---
+
+## 2. Data Pipeline
+
+| Layer | Source | Scale |
+|-------|--------|-------|
+| **Raw** | 3 hospital tables (anadata, lab, recete) | 1.2M + 37.2M + 2.0M rows |
+| **Silver** | Parsed, cleaned, normalized | 6 parquet files |
+| **Gold** | Episode-level features (joins by patient + date) | 352K episodes, 7.4 MB |
+| **Scored** | 4 pillar scores → composite | 352K rows |
+
+**Engine:** DuckDB (threads=4, memory=2GB). No pandas on raw tables. Gold loads in 1.2s.
+
+---
+
+## 3. Four Scoring Pillars
+
+| Pillar | Max | Source | Coverage | Standalone AUC |
+|--------|-----|--------|----------|----------------|
+| **dx_burden** | 35 | ICD-10 → Charlson (Quan 2005) + Elixhauser (Quan 2009) | 100% | 0.867 |
+| **lab_acuity** | 25 | Hospital REFMIN/REFMAX, ±7d window | 65.5% | 0.855 |
+| **tx_intensity** | 20 | WHO ATC 2024 + DrugBank + 900-entry brand bridge | 47.7% | 0.532 |
+| **nlp_severity** | 20 | 220 Turkish stems, 27 negation patterns | 100% | 0.440 |
+
+**Formula:** `severity_score = raw_score / possible_points × 100`
+Missing pillars excluded from denominator (not zero-filled).
+
+---
+
+## 4. Reference Data Provenance
+
+| Domain | Authority | Method |
+|--------|-----------|--------|
+| **ICD-10** | Quan et al. 2005/2009 (>10K citations) | comorbidipy prefix lists → severity weights |
+| **Drugs** | WHO ATC/DDD 2024 + DrugBank 5.1.15 (CC0) + TITCK | Exact ATC match → classification from hierarchy |
+| **Labs** | Hospital LIS instrument ranges | REFMIN/REFMAX per test, sex-aware |
+| **Services** | Manual taxonomy (133 → 5 tiers) | Validation-only, not a scoring input |
+
+All mapping CSVs include `_source` column. No regex classification, no LLM-generated mappings.
+
+---
+
+## 5. Validation Results
+
+| Metric | Test Set | 95% CI |
+|--------|---------|--------|
+| **Death AUC (episode)** | **0.940** | 0.933–0.947 |
+| Death AUC (patient-last) | 0.938 | 0.907–0.958 |
+| Revisit 30d AUC | 0.865 | 0.851–0.877 |
+
+**Temporal split:** train ≤ 2022-12-31, test > 2022-12-31. 1,000 bootstrap resamples.
+
+**Cohort ordering** (no supervision): Deceased 56.4 > Cancer 29.1 > Check-up 24.5
+
+**Calibration:** Top decile death rate = 5.9% vs 0.07% base (85× enrichment).
+
+---
+
+## 6. Key Design Decisions
+
+| Decision | Rationale |
+|----------|-----------|
+| Missing pillar → exclude from denominator | Avoids penalizing patients without labs/rx |
+| Expert weights over data-optimal | Data-derived gives negative NLP weight (clinically absurd) |
+| Lab at 25% despite data saying 47% | 34.5% of episodes lack labs — higher weight makes those unreliable |
+| NLP kept at 20% despite AUC=0.440 | Inverted signal (terse oncology follow-ups). Kept for calibration |
+| Strict `<` for history features | No current/future data leakage |
+| Drug coverage 95.4% (honest) | ATC-backed only. 4.6% = UNRESOLVED, not catch-all |
+
+---
+
+## 7. Strengths & Limitations
+
+**Strengths:**
+- Construct validity without supervision (cohort ordering emerged naturally)
+- Authoritative references only (Charlson, WHO ATC, DrugBank, hospital LIS)
+- Reproducible end-to-end: `uv run python run_e2e.py raw pipeline iter` (~19 min)
+
+**Limitations:**
+- ~40 uncited coefficients (all marked `CALIBRATION_PENDING`)
+- 192 deceased → wide confidence intervals
+- NLP has inverted signal (deceased score lower)
+- No external validation dataset
+- Lab join is symmetric (±7d) — may include future labs
+""")
+
 
 # ── Footer ───────────────────────────────────────────────────────
 st.divider()
