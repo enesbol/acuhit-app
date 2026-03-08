@@ -23,10 +23,8 @@ N_PATIENTS_FULL = 83_104
 N_DECEASED_FULL = 192
 
 EXAMPLE_PATIENTS = {
-    "Deceased — Oncology (179 eps)": "ANON_046250",
-    "Deceased — High severity (16 eps)": "ANON_140407",
-    "Alive — Chronic high (28 eps)": "ANON_190655",
-    "Alive — Routine low (13 eps)": "ANON_019084",
+    "Deceased + Cancer (5 visits)": "ANON_246177",
+    "Alive — Stable (4 visits)": "ANON_195978",
 }
 
 
@@ -121,17 +119,14 @@ if page == "Dashboard":
     # ── Patient Trajectory ───────────────────────────────────────
     st.subheader("Patient Trajectory")
 
-    col_sel, col_input = st.columns([1, 2])
-    with col_sel:
-        example = st.selectbox("Examples", ["(select)"] + list(EXAMPLE_PATIENTS.keys()))
-    with col_input:
-        patient_id = st.text_input("HASTA_ID", value=EXAMPLE_PATIENTS.get(example, ""))
+    example = st.radio("Patient", list(EXAMPLE_PATIENTS.keys()), horizontal=True)
+    patient_id = EXAMPLE_PATIENTS[example]
 
-    if patient_id:
-        pdf = df[df["HASTA_ID"] == patient_id].sort_values("EPISODE_TARIH")
-        if len(pdf) == 0:
-            st.warning("Not found.")
-        else:
+    pdf = df[df["HASTA_ID"] == patient_id].sort_values("EPISODE_TARIH")
+    pdf["_date"] = pd.to_datetime(pdf["EPISODE_TARIH"]).dt.date
+    pdf = pdf.sort_values("severity_score", ascending=False).drop_duplicates("_date").sort_values("EPISODE_TARIH")
+
+    if len(pdf) > 0:
             status = "DECEASED" if pdf["has_ex_source"].max() == 1 else "Alive"
             st.caption(f"**{patient_id}** | {len(pdf)} episodes | {status} | Sex: {pdf['CINSIYET'].iloc[0]}")
 
@@ -259,18 +254,20 @@ elif page == "Key Results":
     st.caption("dx_burden and lab_acuity drive the separation. tx_intensity and nlp_severity contribute minimally.")
 
     # ── 4. Deceased patient trajectory ───────────────────────────
-    st.subheader("Trajectory: Deceased Oncology Patient")
-    onc = df[df["HASTA_ID"] == "ANON_046250"].sort_values("EPISODE_TARIH")
+    st.subheader("Trajectory: Deceased Cancer Patient")
+    traj = df[df["HASTA_ID"] == "ANON_246177"].sort_values("EPISODE_TARIH")
+    traj["date"] = pd.to_datetime(traj["EPISODE_TARIH"]).dt.date
+    traj = traj.sort_values("severity_score", ascending=False).drop_duplicates("date").sort_values("EPISODE_TARIH")
     fig_traj = go.Figure()
     fig_traj.add_trace(go.Scatter(
-        x=onc["EPISODE_TARIH"], y=onc["severity_score"],
+        x=traj["EPISODE_TARIH"], y=traj["severity_score"],
         mode="lines+markers", name="Score",
-        marker=dict(size=5, color="#E74C3C"),
-        line=dict(width=1.5, color="#E74C3C"),
+        marker=dict(size=7, color="#E74C3C"),
+        line=dict(width=2, color="#E74C3C"),
         hovertemplate="%{x}<br>Score: %{y:.1f}<extra></extra>",
     ))
     fig_traj.add_trace(go.Scatter(
-        x=onc["EPISODE_TARIH"], y=onc["score_ewma"],
+        x=traj["EPISODE_TARIH"], y=traj["score_ewma"],
         mode="lines", name="EWMA trend",
         line=dict(width=2, color="#3498DB", dash="dot"),
     ))
@@ -279,7 +276,7 @@ elif page == "Key Results":
         margin=dict(t=10, b=40), legend=dict(orientation="h", y=1.08),
     )
     st.plotly_chart(fig_traj, use_container_width=True)
-    st.caption("ANON_046250 — 179 episodes. Score escalates over time as disease progresses. EWMA smooths visit-to-visit noise.")
+    st.caption("ANON_246177 — 5 visits over 2 weeks. Score escalates 24→60 as cancer diagnosis + labs worsen. All 4 pillars present.")
 
     # ── 5. Summary metrics box ───────────────────────────────────
     st.subheader("Calibration Summary")
@@ -295,54 +292,58 @@ elif page == "Key Results":
 elif page == "Scoring Flow":
     st.title("Scoring Pipeline")
 
-    # ── Scoring formula diagram ──────────────────────────────────
+    # ── Scoring formula diagram (HTML) ──────────────────────────
     st.subheader("How a Score is Computed")
 
-    SCORING_MERMAID = """
-```mermaid
-graph LR
-    subgraph PILLARS["Four Clinical Pillars"]
-        DX["dx_burden<br/><b>max 35 pts</b><br/>ICD severity + history<br/>Charlson/Elixhauser"]
-        LAB["lab_acuity<br/><b>max 25 pts</b><br/>Abnormal/critical labs<br/>7-day window"]
-        TX["tx_intensity<br/><b>max 20 pts</b><br/>Polypharmacy + oncology<br/>+ parenteral route"]
-        NLP["nlp_severity<br/><b>max 20 pts</b><br/>Symptom + chronic count<br/>+ negation"]
-    end
+    st.markdown("""
+<div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:18px;">
+  <div style="flex:1; min-width:140px; background:#fdd; border-radius:8px; padding:14px; text-align:center;">
+    <b>dx_burden</b><br/>max <b>35</b> pts<br/><small>ICD severity + history<br/>Charlson / Elixhauser</small>
+  </div>
+  <div style="flex:1; min-width:140px; background:#ddf; border-radius:8px; padding:14px; text-align:center;">
+    <b>lab_acuity</b><br/>max <b>25</b> pts<br/><small>Abnormal / critical labs<br/>7-day window</small>
+  </div>
+  <div style="flex:1; min-width:140px; background:#dfd; border-radius:8px; padding:14px; text-align:center;">
+    <b>tx_intensity</b><br/>max <b>20</b> pts<br/><small>Polypharmacy + oncology<br/>+ parenteral route</small>
+  </div>
+  <div style="flex:1; min-width:140px; background:#fef; border-radius:8px; padding:14px; text-align:center;">
+    <b>nlp_severity</b><br/>max <b>20</b> pts<br/><small>Symptom + chronic count<br/>+ negation</small>
+  </div>
+</div>
+<div style="text-align:center; margin-bottom:8px; font-size:1.3em;">⬇</div>
+<div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:18px;">
+  <div style="flex:1; background:#eee; border-radius:8px; padding:12px; text-align:center;">
+    <b>raw_score</b> = dx + lab + tx + nlp
+  </div>
+  <div style="flex:1; background:#eee; border-radius:8px; padding:12px; text-align:center;">
+    <b>possible_points</b> = 35 + (25 if labs) + (20 if rx) + (20 if text)<br/><i>Missing pillars excluded from denominator</i>
+  </div>
+</div>
+<div style="text-align:center; margin-bottom:8px; font-size:1.3em;">⬇</div>
+<div style="background:#ffa; border:2px solid #333; border-radius:10px; padding:16px; text-align:center; max-width:400px; margin:0 auto;">
+  <b style="font-size:1.2em;">severity_score = raw / possible × 100</b>
+</div>
+""", unsafe_allow_html=True)
 
-    SUM["raw_score =<br/>dx + lab + tx + nlp"]
-    DEN["possible_points =<br/>35 + (25 if labs) + (20 if rx) + (20 if text)<br/><i>Missing pillars excluded</i>"]
-    SCORE["<b>severity_score =<br/>raw / possible × 100</b>"]
-
-    DX & LAB & TX & NLP --> SUM
-    SUM --> SCORE
-    DEN --> SCORE
-
-    style DX fill:#fdd
-    style LAB fill:#ddf
-    style TX fill:#dfd
-    style NLP fill:#fef
-    style SCORE fill:#ffa,stroke:#333,stroke-width:2px
-```
-"""
-    st.markdown(SCORING_MERMAID)
-
-    # ── Cohort validation ────────────────────────────────────────
+    # ── Cohort validation (HTML) ──────────────────────────────────
     st.subheader("Cohort Validation")
 
-    COHORT_MERMAID = """
-```mermaid
-graph LR
-    EX["Deceased<br/><b>Score: 56.4</b><br/>191 patients"]
-    CANCER["Cancer<br/><b>Score: 29.1</b><br/>198 patients"]
-    CHECKUP["Check-up<br/><b>Score: 24.5</b><br/>197 patients"]
-
-    EX ---|"clinically expected ordering"| CANCER ---|"without training on death"| CHECKUP
-
-    style EX fill:#f66,color:#fff
-    style CANCER fill:#fa6
-    style CHECKUP fill:#6f6
-```
-"""
-    st.markdown(COHORT_MERMAID)
+    st.markdown("""
+<div style="display:flex; align-items:center; gap:0; flex-wrap:wrap; justify-content:center; margin:20px 0;">
+  <div style="background:#e44; color:#fff; border-radius:10px; padding:18px 24px; text-align:center; min-width:160px;">
+    <b>Deceased</b><br/>Score: <b>56.4</b><br/><small>191 patients</small>
+  </div>
+  <div style="padding:0 10px; font-size:1.5em; color:#888;">→</div>
+  <div style="background:#fa6; border-radius:10px; padding:18px 24px; text-align:center; min-width:160px;">
+    <b>Cancer</b><br/>Score: <b>29.1</b><br/><small>198 patients</small>
+  </div>
+  <div style="padding:0 10px; font-size:1.5em; color:#888;">→</div>
+  <div style="background:#6c6; border-radius:10px; padding:18px 24px; text-align:center; min-width:160px;">
+    <b>Check-up</b><br/>Score: <b>24.5</b><br/><small>197 patients</small>
+  </div>
+</div>
+<p style="text-align:center; color:#666; font-style:italic;">Clinically expected ordering — emerged without training on mortality</p>
+""", unsafe_allow_html=True)
 
     # ── Two real patient examples ────────────────────────────────
     st.subheader("Worked Examples — Real Patients")
