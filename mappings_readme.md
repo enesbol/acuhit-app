@@ -51,10 +51,10 @@ mappings/
 
 ## Reference Data
 
-- **WHO ATC index**: Downloaded from fabkury/atcd (WHO ATC/DDD 2024-07-31)
-- **DrugBank vocabulary**: Downloaded from DrugBank Open Data 5.1.15 (CC0)
-- **Brand-INN bridge**: 900 Turkish brand-to-INN mappings, each verified against TITCK
-- **Charlson/Elixhauser prefixes**: Extracted from comorbidipy package (Quan et al. 2005)
+- **WHO ATC index**: [fabkury/atcd](https://github.com/fabkury/atcd) (WHO ATC/DDD 2024-07-31)
+- **DrugBank vocabulary**: [DrugBank Open Data 5.1.15](https://go.drugbank.com/releases/latest#open-data) (CC0)
+- **Brand-INN bridge**: 900 Turkish brand-to-INN mappings, verified against [TITCK](https://www.titck.gov.tr/)
+- **Charlson/Elixhauser prefixes**: [Quan et al. 2005](https://doi.org/10.1097/01.mlr.0000182534.19832.83) via comorbidipy
 - **Lab importance rules**: Clinical judgment rules for lab test prioritization
 
 ## Clinical Defense
