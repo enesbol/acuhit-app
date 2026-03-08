@@ -168,6 +168,18 @@ if page == "Dashboard":
                 use_container_width=True,
             )
 
+            # Show clinical text notes if available
+            text_cols = [c for c in ["YAKINMA", "MUAYENE_NOTU", "TEDAVI_NOTU"] if c in pdf.columns]
+            if text_cols and pdf[text_cols].notna().any().any():
+                with st.expander("Clinical Notes", expanded=True):
+                    for _, r in pdf.iterrows():
+                        date_str = str(r["EPISODE_TARIH"])[:10]
+                        st.markdown(f"**{date_str}** — Score: {r['severity_score']:.1f}")
+                        for col, label in [("YAKINMA", "Complaint"), ("MUAYENE_NOTU", "Examination"), ("TEDAVI_NOTU", "Treatment")]:
+                            if col in r and pd.notna(r[col]) and str(r[col]).strip():
+                                st.caption(f"_{label}:_ {str(r[col]).strip()[:300]}")
+                        st.markdown("---")
+
 elif page == "Key Results":
     st.title("Key Results")
 
@@ -468,11 +480,13 @@ elif page == "Full Reports":
     st.title("Full Reports")
     st.caption("Complete audit and engineering reports for reference.")
 
-    tab1, tab2 = st.tabs(["Scoring System Audit", "Engineering Technical Report"])
+    tab1, tab2, tab3 = st.tabs(["Scoring System Audit", "Engineering Technical Report", "Mappings & Reference Data"])
     with tab1:
         st.markdown(load_report("scoring_system_audit.md"))
     with tab2:
         st.markdown(load_report("engineering_technical_report.md"))
+    with tab3:
+        st.markdown(load_report("mappings_readme.md"))
 
 # ── Footer ───────────────────────────────────────────────────────
 st.divider()
